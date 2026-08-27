@@ -14,7 +14,8 @@ async def lifespan(application: FastAPI):
     del application
     settings = get_settings()
     init_db()
-    if settings.jwt_secret == "change-this-secret":
+    secret = settings.jwt_secret.lower()
+    if any(marker in secret for marker in ("change-this", "replace-with")):
         logging.getLogger(__name__).warning(
             "JWT_SECRET is still the placeholder default; configure a strong secret before deployment"
         )

@@ -88,10 +88,11 @@ docker compose exec proxmox-vnc-lab python -m app.cli create-user intern1 'stron
 ## noVNC и air-gapped установка
 
 `static/console.html` импортирует ESM noVNC версии
-`https://cdn.jsdelivr.net/npm/@novnc/novnc@1.6.0/lib/rfb.js`. Этот URL и точная
-версия проверены как часть release-публикации noVNC. В закрытой сети скачайте
-тот же пакет и разместите его в `static/vendor/novnc`, после чего замените
-импорт на `/vendor/novnc/lib/rfb.js` (включая необходимые зависимости).
+`https://cdn.jsdelivr.net/gh/novnc/noVNC@v1.6.0/core/rfb.js`. Важно: npm-путь
+`@novnc/novnc/.../lib/rfb.js` содержит CommonJS-сборку и для браузерного ESM
+импорта не подходит. В закрытой сети скачайте ESM-исходники из каталога noVNC
+`core/` (со всеми относительными зависимостями), разместите их в
+`static/vendor/novnc/core/` и замените импорт на `/vendor/novnc/core/rfb.js`.
 
 ## API и проверка
 
@@ -108,6 +109,11 @@ pytest
 
 Для production достаточно установить только `requirements.txt`; `pytest` и
 `ruff` находятся в `requirements-dev.txt`.
+
+Запускайте `uvicorn` из корня репозитория: `DATABASE_URL=sqlite:///./data/app.db`
+и `StaticFiles(directory="static")` используют текущий каталог. Для абсолютного
+пути SQLite используйте четыре слеша, например
+`DATABASE_URL=sqlite:////var/lib/proxmox-vnc-lab/app.db`.
 
 Тесты не подключаются к реальному PVE: сервис подменён stub-реализацией. Полная
 проверка clone/start/VNC требует работающего Proxmox VE, корректных privileges,

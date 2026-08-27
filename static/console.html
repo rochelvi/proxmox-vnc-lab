@@ -13,22 +13,34 @@
     <div id="screen"></div>
   </main>
   <script type="module">
-    import RFB from "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.6.0/lib/rfb.js";
-    const token = sessionStorage.getItem("token");
-    const vmid = new URLSearchParams(location.search).get("vmid");
-    const status = document.querySelector("#status");
-    if (!token || !vmid) location.href = "/login.html";
-    const auth = {"Authorization": `Bearer ${token}`};
-    const response = await fetch(`/api/vms/${vmid}/vnc`, {headers: auth});
-    if (!response.ok) { status.textContent = "Не удалось получить доступ к консоли"; throw new Error("VNC setup failed"); }
-    const info = await response.json();
-    const scheme = location.protocol === "https:" ? "wss" : "ws";
-    const rfb = new RFB(document.querySelector("#screen"),
-      `${scheme}://${location.host}${info.ws_path}?port=${info.port}&vncticket=${encodeURIComponent(info.ticket)}&token=${encodeURIComponent(token)}`,
-      {credentials: {password: info.password}});
-    rfb.scaleViewport = true;
-    rfb.addEventListener("connect", () => { status.textContent = "Подключено"; });
-    rfb.addEventListener("disconnect", () => { status.textContent = "Соединение закрыто"; });
+    (async () => {
+      const token = sessionStorage.getItem("token");
+      const vmid = new URLSearchParams(location.search).get("vmid");
+      if (!token || !vmid) {
+        location.href = "/login.html";
+        return;
+      }
+      const status = document.querySelector("#status");
+      try {
+        const {default: RFB} = await import(
+          "https://cdn.jsdelivr.net/gh/novnc/noVNC@v1.6.0/core/rfb.js"
+        );
+        const auth = {"Authorization": `Bearer ${token}`};
+        const response = await fetch(`/api/vms/${vmid}/vnc`, {headers: auth});
+        if (!response.ok) throw new Error(`VNC API returned ${response.status}`);
+        const info = await response.json();
+        const scheme = location.protocol === "https:" ? "wss" : "ws";
+        const rfb = new RFB(document.querySelector("#screen"),
+          `${scheme}://${location.host}${info.ws_path}?port=${info.port}&vncticket=${encodeURIComponent(info.ticket)}&token=${encodeURIComponent(token)}`,
+          {credentials: {password: info.password}});
+        rfb.scaleViewport = true;
+        rfb.addEventListener("connect", () => { status.textContent = "Подключено"; });
+        rfb.addEventListener("disconnect", () => { status.textContent = "Соединение закрыто"; });
+      } catch (error) {
+        console.error("VNC console failed", error);
+        status.textContent = "Не удалось загрузить консоль. Проверьте доступ к Proxmox.";
+      }
+    })();
   </script>
 </body>
 </html>

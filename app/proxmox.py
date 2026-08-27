@@ -54,7 +54,7 @@ class ProxmoxService:
             if secret:
                 message = message.replace(secret, "[redacted]")
         logger.error("Proxmox request failed vmid=%s node=%s error=%s", vmid, self.settings.pve_node, message)
-        return HTTPException(502, f"Proxmox API error: {message[:500]}")
+        return HTTPException(502, f"Не удалось связаться с Proxmox: {message[:500]}")
 
     def _call(self, operation: Callable[[], Any], *, vmid: int | None = None) -> Any:
         try:
