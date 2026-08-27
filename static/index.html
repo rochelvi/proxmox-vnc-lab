@@ -5,10 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Proxmox VNC Lab</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
   <main class="container">
-    <header><h1>Мои виртуальные машины</h1><button id="logout" class="secondary">Выйти</button></header>
+    <header>
+      <h1>Мои виртуальные машины</h1>
+      <div class="actions">
+        <button data-theme-toggle class="secondary">Тёмная тема</button>
+        <button id="change-password" class="secondary" hidden>Изменить пароль</button>
+        <button id="logout" class="secondary">Выйти</button>
+      </div>
+    </header>
     <p id="message"></p>
     <div class="vm-controls">
       <label id="template-picker">Шаблон
@@ -21,7 +29,7 @@
     </table>
   </main>
 
-  <div id="vm-loading-overlay" class="loading-overlay" hidden>
+  <div id="vm-loading-overlay" class="overlay" hidden>
     <div class="card narrow loading-card">
       <div class="spinner"></div>
       <h2>Создание виртуальной машины</h2>
@@ -30,6 +38,20 @@
         <div class="progress-bar-value"></div>
       </div>
     </div>
+  </div>
+
+  <div id="password-overlay" class="overlay" hidden>
+    <form id="password-form" class="card narrow dialog-card">
+      <h2>Изменить пароль</h2>
+      <label>Текущий пароль<input name="current_password" type="password" required autocomplete="current-password"></label>
+      <label>Новый пароль<input name="new_password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <label>Повторите новый пароль<input name="confirm_password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <p id="password-message"></p>
+      <div class="dialog-actions">
+        <button type="button" id="password-cancel" class="secondary">Отмена</button>
+        <button type="submit">Сохранить</button>
+      </div>
+    </form>
   </div>
 
   <script src="/app.js"></script>

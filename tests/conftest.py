@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.main import app
 from app.models import User, VMAssignment
-from app.proxmox import get_proxmox_service
+from app.proxmox import ProxmoxVMNotFound, get_proxmox_service
 from app.security import hash_password
 
 
@@ -32,6 +32,11 @@ class StubProxmox:
         self.calls: list[tuple] = []
         self.next_id = 101
         self.statuses: dict[int, str] = {}
+        self.missing: set[int] = set()
+
+    def _check_exists(self, vmid: int) -> None:
+        if vmid in self.missing:
+            raise ProxmoxVMNotFound(vmid, f"ВМ {vmid} больше не существует в Proxmox")
 
     def next_free_vmid(self, db=None) -> int:
         used = set(db.scalars(select(VMAssignment.vmid)).all()) if db else set()
@@ -44,21 +49,26 @@ class StubProxmox:
         self.statuses[vmid] = "stopped"
 
     def start(self, vmid):
+        self._check_exists(vmid)
         self.calls.append(("start", vmid))
         self.statuses[vmid] = "running"
 
     def stop(self, vmid):
+        self._check_exists(vmid)
         self.calls.append(("stop", vmid))
         self.statuses[vmid] = "stopped"
 
     def delete(self, vmid):
+        self._check_exists(vmid)
         self.calls.append(("delete", vmid))
         self.statuses.pop(vmid, None)
 
     def status(self, vmid):
+        self._check_exists(vmid)
         return {"status": self.statuses.get(vmid, "unknown")}
 
     def vncproxy(self, vmid):
+        self._check_exists(vmid)
         self.calls.append(("vncproxy", vmid))
         return {"ticket": "ticket-for-test", "port": 5901}
 

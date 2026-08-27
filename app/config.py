@@ -52,7 +52,6 @@ class Settings(BaseSettings):
     clone_storage: str | None = None
     clone_pool: str | None = None
     clone_name_prefix: str = "intern"
-    max_vms_per_user: int = 1
     database_url: str = "sqlite:///./data/app.db"
     jwt_secret: str = "change-this-secret"
     jwt_algorithm: str = "HS256"

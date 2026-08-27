@@ -15,6 +15,19 @@ from app.models import VMAssignment
 
 logger = logging.getLogger(__name__)
 
+MISSING_VM_MARKERS = (
+    "unable to find configuration file for vm",
+    "no such vm",
+)
+
+
+class ProxmoxVMNotFound(HTTPException):
+    """Raised when Proxmox no longer knows about a VM we still track in the database."""
+
+    def __init__(self, vmid: int | None, detail: str):
+        super().__init__(404, detail)
+        self.vmid = vmid
+
 
 class ProxmoxService:
     def __init__(self, settings: Settings | None = None):
@@ -54,6 +67,8 @@ class ProxmoxService:
             if secret:
                 message = message.replace(secret, "[redacted]")
         logger.error("Proxmox request failed vmid=%s node=%s error=%s", vmid, self.settings.pve_node, message)
+        if any(marker in message.lower() for marker in MISSING_VM_MARKERS):
+            return ProxmoxVMNotFound(vmid, f"ВМ {vmid} больше не существует в Proxmox")
         return HTTPException(502, f"Не удалось связаться с Proxmox: {message[:500]}")
 
     def _call(self, operation: Callable[[], Any], *, vmid: int | None = None) -> Any:

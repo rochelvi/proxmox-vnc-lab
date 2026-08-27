@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth_providers import get_auth_provider
 from app.config import get_settings
 from app.db import get_db
-from app.schemas import LoginRequest, TokenResponse, UserResponse
-from app.security import create_access_token, get_current_user
+from app.models import User
+from app.schemas import LoginRequest, PasswordChangeRequest, TokenResponse, UserResponse
+from app.security import create_access_token, get_current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -30,4 +31,23 @@ async def login(request: Request, db: Session = Depends(get_db)) -> TokenRespons
 
 @router.get("/me", response_model=UserResponse)
 def me(user=Depends(get_current_user)) -> UserResponse:
-    return UserResponse.model_validate(user)
+    local_auth = get_settings().auth_provider.lower() == "local"
+    return UserResponse.model_validate(user).model_copy(
+        update={"can_change_password": local_auth and bool(user.password_hash)}
+    )
+
+
+@router.post("/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: PasswordChangeRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    if get_settings().auth_provider.lower() != "local":
+        raise HTTPException(400, "Смена пароля доступна только при локальной аутентификации")
+    if not user.password_hash or not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(400, "Текущий пароль указан неверно")
+    if payload.current_password == payload.new_password:
+        raise HTTPException(400, "Новый пароль должен отличаться от текущего")
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()

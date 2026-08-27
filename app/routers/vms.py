@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db
 from app.models import User, VMAssignment
-from app.proxmox import ProxmoxService, get_proxmox_service
+from app.proxmox import ProxmoxService, ProxmoxVMNotFound, get_proxmox_service
 from app.schemas import VMAssignmentRequest, VMAssignmentResponse, VNCResponse
 from app.security import get_current_user
 
@@ -22,6 +22,13 @@ def _clone_name(prefix: str, username: str, template_vmid: int, vmid: int) -> st
     raw_name = f"{prefix}-{username}-t{template_vmid}-{vmid}"
     safe_name = re.sub(r"[^A-Za-z0-9-]+", "-", raw_name).strip("-")
     return (safe_name or f"vm-t{template_vmid}-{vmid}")[:60].rstrip("-")
+
+
+def _forget_assignment(assignment: VMAssignment, db: Session) -> None:
+    """Drop a stale record whose VM no longer exists in Proxmox."""
+    logger.info("Removing stale VM assignment vmid=%s: VM is gone from Proxmox", assignment.vmid)
+    db.delete(assignment)
+    db.commit()
 
 
 def _assignment_or_404(vmid: int, user: User, db: Session) -> VMAssignment:
@@ -42,9 +49,6 @@ def assign_vm(
 ) -> VMAssignment:
     settings = get_settings()
     with allocation_lock:
-        count = len(db.scalars(select(VMAssignment).where(VMAssignment.user_id == user.id)).all())
-        if count >= settings.max_vms_per_user:
-            raise HTTPException(409, "VM limit reached")
         requested_template = payload.template_vmid if payload else None
         template = (
             settings.template_by_vmid(requested_template)
@@ -93,14 +97,23 @@ def list_vms(
     if not (all and user.is_admin):
         query = query.where(VMAssignment.user_id == user.id)
     assignments = list(db.scalars(query).all())
+    alive: list[VMAssignment] = []
+    stale: list[VMAssignment] = []
     for assignment in assignments:
         try:
             live = pve.status(assignment.vmid)
             assignment.status = str(live.get("status", assignment.status))
+        except ProxmoxVMNotFound:
+            stale.append(assignment)
+            continue
         except HTTPException:
             pass
+        alive.append(assignment)
+    for assignment in stale:
+        logger.info("Removing stale VM assignment vmid=%s: VM is gone from Proxmox", assignment.vmid)
+        db.delete(assignment)
     db.commit()
-    return assignments
+    return alive
 
 
 @router.post("/{vmid}/stop", response_model=VMAssignmentResponse)
@@ -111,7 +124,11 @@ def stop_vm(
     pve: ProxmoxService = Depends(get_proxmox_service),
 ) -> VMAssignment:
     assignment = _assignment_or_404(vmid, user, db)
-    pve.stop(vmid)
+    try:
+        pve.stop(vmid)
+    except ProxmoxVMNotFound as exc:
+        _forget_assignment(assignment, db)
+        raise HTTPException(404, "ВМ отсутствует в Proxmox, запись удалена из базы") from exc
     assignment.status = "stopped"
     db.commit()
     db.refresh(assignment)
@@ -126,7 +143,11 @@ def start_vm(
     pve: ProxmoxService = Depends(get_proxmox_service),
 ) -> VMAssignment:
     assignment = _assignment_or_404(vmid, user, db)
-    pve.start(vmid)
+    try:
+        pve.start(vmid)
+    except ProxmoxVMNotFound as exc:
+        _forget_assignment(assignment, db)
+        raise HTTPException(404, "ВМ отсутствует в Proxmox, запись удалена из базы") from exc
     assignment.status = "running"
     db.commit()
     db.refresh(assignment)
@@ -141,7 +162,11 @@ def delete_vm(
     pve: ProxmoxService = Depends(get_proxmox_service),
 ) -> None:
     assignment = _assignment_or_404(vmid, user, db)
-    pve.delete(vmid)
+    try:
+        pve.delete(vmid)
+    except ProxmoxVMNotFound:
+        _forget_assignment(assignment, db)
+        return
     db.delete(assignment)
     db.commit()
 
@@ -153,8 +178,12 @@ def vnc(
     user: User = Depends(get_current_user),
     pve: ProxmoxService = Depends(get_proxmox_service),
 ) -> VNCResponse:
-    _assignment_or_404(vmid, user, db)
-    result = pve.vncproxy(vmid)
+    assignment = _assignment_or_404(vmid, user, db)
+    try:
+        result = pve.vncproxy(vmid)
+    except ProxmoxVMNotFound as exc:
+        _forget_assignment(assignment, db)
+        raise HTTPException(404, "ВМ отсутствует в Proxmox, запись удалена из базы") from exc
     ticket = str(result["ticket"])
     password = str(result.get("password") or ticket)
     return VNCResponse(

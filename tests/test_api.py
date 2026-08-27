@@ -15,6 +15,59 @@ def test_login_jwt_and_me(client):
     response = api.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json()["username"] == "intern"
+    assert response.json()["can_change_password"] is True
+
+
+def test_change_password_updates_credentials(client):
+    api, _, _ = client
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    response = api.post(
+        "/api/auth/password",
+        headers=headers,
+        json={"current_password": "password", "new_password": "new-password"},
+    )
+    assert response.status_code == 204
+    assert api.post(
+        "/api/auth/login", json={"username": "intern", "password": "password"}
+    ).status_code == 401
+    assert api.post(
+        "/api/auth/login", json={"username": "intern", "password": "new-password"}
+    ).status_code == 200
+
+
+def test_change_password_rejects_wrong_current_password(client):
+    api, _, _ = client
+    token = login(api)
+    response = api.post(
+        "/api/auth/password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"current_password": "wrong-password", "new_password": "new-password"},
+    )
+    assert response.status_code == 400
+    assert api.post(
+        "/api/auth/login", json={"username": "intern", "password": "password"}
+    ).status_code == 200
+
+
+def test_change_password_rejects_short_password(client):
+    api, _, _ = client
+    token = login(api)
+    response = api.post(
+        "/api/auth/password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"current_password": "password", "new_password": "short"},
+    )
+    assert response.status_code == 422
+
+
+def test_change_password_requires_authentication(client):
+    api, _, _ = client
+    response = api.post(
+        "/api/auth/password",
+        json={"current_password": "password", "new_password": "new-password"},
+    )
+    assert response.status_code == 401
 
 
 def test_unauthorized_access(client):
@@ -106,6 +159,64 @@ def test_assignment_without_body_uses_default_template(client, monkeypatch):
     assert response.status_code == 201
     assert response.json()["template_vmid"] == 9000
     assert stub.calls[0][3] == 9000
+
+
+def test_user_can_create_multiple_vms(client):
+    api, _, _ = client
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    first = api.post("/api/vms", headers=headers)
+    second = api.post("/api/vms", headers=headers)
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["vmid"] != second.json()["vmid"]
+    assert len(api.get("/api/vms", headers=headers).json()) == 2
+
+
+def test_listing_drops_assignments_missing_in_proxmox(client):
+    api, stub, session_factory = client
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    vmid = api.post("/api/vms", headers=headers).json()["vmid"]
+    stub.missing.add(vmid)
+    assert api.get("/api/vms", headers=headers).json() == []
+    with session_factory() as db:
+        assert db.scalar(select(VMAssignment).where(VMAssignment.vmid == vmid)) is None
+
+
+@pytest.mark.parametrize("path", ["start", "stop"])
+def test_power_actions_drop_assignments_missing_in_proxmox(client, path):
+    api, stub, session_factory = client
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    vmid = api.post("/api/vms", headers=headers).json()["vmid"]
+    stub.missing.add(vmid)
+    response = api.post(f"/api/vms/{vmid}/{path}", headers=headers)
+    assert response.status_code == 404
+    with session_factory() as db:
+        assert db.scalar(select(VMAssignment).where(VMAssignment.vmid == vmid)) is None
+
+
+def test_delete_succeeds_when_vm_already_gone(client):
+    api, stub, session_factory = client
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    vmid = api.post("/api/vms", headers=headers).json()["vmid"]
+    stub.missing.add(vmid)
+    assert api.delete(f"/api/vms/{vmid}", headers=headers).status_code == 204
+    with session_factory() as db:
+        assert db.scalar(select(VMAssignment).where(VMAssignment.vmid == vmid)) is None
+
+
+def test_vnc_drops_assignment_missing_in_proxmox(client):
+    api, stub, session_factory = client
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    vmid = api.post("/api/vms", headers=headers).json()["vmid"]
+    stub.missing.add(vmid)
+    assert api.get(f"/api/vms/{vmid}/vnc", headers=headers).status_code == 404
+    with session_factory() as db:
+        assert db.scalar(select(VMAssignment).where(VMAssignment.vmid == vmid)) is None
 
 
 @pytest.mark.parametrize(

@@ -5,10 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Консоль ВМ</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
 </head>
 <body class="console-page">
   <main class="container">
-    <header><h1 id="title">Консоль</h1><a href="/">← К списку ВМ</a></header>
+    <header>
+      <h1 id="title">Консоль</h1>
+      <div class="actions">
+        <button data-theme-toggle class="secondary">Тёмная тема</button>
+        <a href="/">← К списку ВМ</a>
+      </div>
+    </header>
     <p id="status">Подключение…</p>
     <div id="screen"></div>
   </main>

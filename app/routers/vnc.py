@@ -103,7 +103,7 @@ async def vnc_websocket(websocket: WebSocket, vmid: int) -> None:
                 task.cancel()
             for task in done:
                 exc = task.exception()
-                if exc and not isinstance(exc, (WebSocketDisconnect, asyncio.CancelledError)):
+                if exc and not isinstance(exc, WebSocketDisconnect | asyncio.CancelledError):
                     logger.warning("VNC proxy stream task ended for vmid=%s: %s", vmid, exc)
     except Exception as e:
         logger.warning("VNC proxy ended vmid=%s: %s", vmid, e)

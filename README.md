@@ -133,10 +133,17 @@ docker compose exec proxmox-vnc-lab python -m app.cli create-user intern1 'stron
 
 ## API и проверка
 
-Основные маршруты: `POST /api/auth/login`, `GET /api/auth/me`, `GET/POST
-/api/vms`, `POST /api/vms/{vmid}/start|stop`, `DELETE /api/vms/{vmid}` и
-`GET /api/vms/{vmid}/vnc`. WebSocket использует
+Основные маршруты: `POST /api/auth/login`, `GET /api/auth/me`, `POST
+/api/auth/password`, `GET/POST /api/vms`, `POST /api/vms/{vmid}/start|stop`,
+`DELETE /api/vms/{vmid}` и `GET /api/vms/{vmid}/vnc`. WebSocket использует
 `/api/vms/{vmid}/ws?port=...&vncticket=...&token=<JWT>`.
+
+`POST /api/auth/password` принимает `{"current_password": ..., "new_password":
+...}` (новый пароль не короче 8 символов) и работает только при
+`AUTH_PROVIDER=local`; в UI кнопка «Изменить пароль» скрывается, если смена
+пароля недоступна. Тема оформления (светлая/тёмная) переключается кнопкой в
+шапке и сохраняется в `localStorage`, по умолчанию берётся системная
+`prefers-color-scheme`.
 
 ```bash
 ruff check .
