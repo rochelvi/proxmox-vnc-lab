@@ -25,6 +25,20 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
     auth_provider: str = "local"
+    freeipa_server: str = "ipa.example.local"
+    freeipa_port: int = 636
+    freeipa_use_ssl: bool = True
+    freeipa_start_tls: bool = False
+    freeipa_verify_ssl: bool = False
+    freeipa_base_dn: str = "dc=example,dc=local"
+    freeipa_user_base_dn: str | None = None
+    freeipa_group_base_dn: str | None = None
+    freeipa_bind_dn: str | None = None
+    freeipa_bind_password: str | None = None
+    freeipa_user_filter: str = "(uid={username})"
+    freeipa_user_dn_template: str | None = None
+    freeipa_admin_group: str | None = None
+    freeipa_auto_create_user: bool = False
     log_level: str = "INFO"
     task_timeout_seconds: int = 300
     task_poll_interval: float = 2.0

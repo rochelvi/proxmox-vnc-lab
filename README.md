@@ -72,6 +72,29 @@ linked clone. При `CLONE_FULL=true` сервис передаст `storage` (
 используется `Authorization: PVEAPIToken=...`. Этот выбор сделан именно для
 совместимости с различными версиями PVE; пароль хранится только в окружении.
 
+## Аутентификация через FreeIPA / LDAP
+
+Для переключения аутентификации на FreeIPA / LDAP установите в `.env`:
+
+```bash
+AUTH_PROVIDER=freeipa
+FREEIPA_SERVER=ipa.example.local
+FREEIPA_PORT=636
+FREEIPA_USE_SSL=true
+FREEIPA_BASE_DN=dc=example,dc=local
+
+# По умолчанию проверяются только пользователи, уже добавленные в локальную БД.
+# Если нужно автоматически создавать пользователя при первом успешном входе:
+FREEIPA_AUTO_CREATE_USER=false
+
+# Опционально: проверка прав администратора по группе в FreeIPA
+FREEIPA_ADMIN_GROUP=admins
+
+# Опционально: сервисный аккаунт для поиска пользователей (если анонимный/прямой bind не подходит)
+# FREEIPA_BIND_DN=uid=binduser,cn=sysaccounts,cn=etc,dc=example,dc=local
+# FREEIPA_BIND_PASSWORD=bindpassword
+```
+
 ## Docker Compose
 
 ```bash
