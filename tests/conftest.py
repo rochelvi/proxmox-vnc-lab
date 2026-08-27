@@ -39,8 +39,8 @@ class StubProxmox:
             self.next_id += 1
         return self.next_id
 
-    def clone_template(self, vmid, name):
-        self.calls.append(("clone", vmid, name))
+    def clone_template(self, vmid, name, template_vmid=None):
+        self.calls.append(("clone", vmid, name, template_vmid))
         self.statuses[vmid] = "stopped"
 
     def start(self, vmid):

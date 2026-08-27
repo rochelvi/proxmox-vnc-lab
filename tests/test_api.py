@@ -2,7 +2,10 @@ import pytest
 from sqlalchemy import select
 from starlette.websockets import WebSocketDisconnect
 
+from app.config import Settings
 from app.models import VMAssignment
+from app.routers import templates as templates_router
+from app.routers import vms as vms_router
 from tests.conftest import login
 
 
@@ -63,6 +66,46 @@ def test_vnc_endpoint_shape(client):
         "ws_path": f"/api/vms/{vmid}/ws",
         "password": "ticket-for-test",
     }
+
+
+def test_templates_endpoint_and_explicit_assignment(client, monkeypatch):
+    api, stub, _ = client
+    settings = Settings(templates="9000:Ubuntu 22.04, 9001:Debian 12")
+    monkeypatch.setattr(vms_router, "get_settings", lambda: settings)
+    monkeypatch.setattr(templates_router, "get_settings", lambda: settings)
+    token = login(api)
+    headers = {"Authorization": f"Bearer {token}"}
+    assert api.get("/api/templates", headers=headers).json() == [
+        {"vmid": 9000, "label": "Ubuntu 22.04"},
+        {"vmid": 9001, "label": "Debian 12"},
+    ]
+    response = api.post("/api/vms", headers=headers, json={"template_vmid": 9001})
+    assert response.status_code == 201
+    body = response.json()
+    assert body["template_vmid"] == 9001
+    assert body["template_label"] == "Debian 12"
+    assert stub.calls[0][3] == 9001
+
+
+def test_unknown_template_is_rejected(client):
+    api, _, _ = client
+    token = login(api)
+    response = api.post(
+        "/api/vms", headers={"Authorization": f"Bearer {token}"}, json={"template_vmid": 9999}
+    )
+    assert response.status_code == 400
+    assert "Unknown template VMID" in response.json()["detail"]
+
+
+def test_assignment_without_body_uses_default_template(client, monkeypatch):
+    api, stub, _ = client
+    settings = Settings(templates="9000:Ubuntu 22.04,9001:Debian 12")
+    monkeypatch.setattr(vms_router, "get_settings", lambda: settings)
+    token = login(api)
+    response = api.post("/api/vms", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 201
+    assert response.json()["template_vmid"] == 9000
+    assert stub.calls[0][3] == 9000
 
 
 @pytest.mark.parametrize(

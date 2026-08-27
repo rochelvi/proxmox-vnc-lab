@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db import init_db
-from app.routers import auth, vms, vnc
+from app.routers import auth, templates, vms, vnc
 
 
 @asynccontextmanager
@@ -14,7 +14,8 @@ async def lifespan(application: FastAPI):
     del application
     settings = get_settings()
     init_db()
-    if settings.jwt_secret == "change-this-secret":
+    secret = settings.jwt_secret.lower()
+    if any(marker in secret for marker in ("change-this", "replace-with")):
         logging.getLogger(__name__).warning(
             "JWT_SECRET is still the placeholder default; configure a strong secret before deployment"
         )
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     )
     application = FastAPI(title="Proxmox VNC Lab", lifespan=lifespan)
     application.include_router(auth.router)
+    application.include_router(templates.router)
     application.include_router(vms.router)
     application.include_router(vnc.router)
 

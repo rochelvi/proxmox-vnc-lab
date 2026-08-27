@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,12 +10,18 @@ from app.config import get_settings
 from app.db import get_db
 from app.models import User, VMAssignment
 from app.proxmox import ProxmoxService, get_proxmox_service
-from app.schemas import VMAssignmentResponse, VNCResponse
+from app.schemas import VMAssignmentRequest, VMAssignmentResponse, VNCResponse
 from app.security import get_current_user
 
 router = APIRouter(prefix="/api/vms", tags=["vms"])
 allocation_lock = threading.Lock()
 logger = logging.getLogger(__name__)
+
+
+def _clone_name(prefix: str, username: str, template_vmid: int, vmid: int) -> str:
+    raw_name = f"{prefix}-{username}-t{template_vmid}-{vmid}"
+    safe_name = re.sub(r"[^A-Za-z0-9-]+", "-", raw_name).strip("-")
+    return (safe_name or f"vm-t{template_vmid}-{vmid}")[:60].rstrip("-")
 
 
 def _assignment_or_404(vmid: int, user: User, db: Session) -> VMAssignment:
@@ -28,6 +35,7 @@ def _assignment_or_404(vmid: int, user: User, db: Session) -> VMAssignment:
 
 @router.post("", response_model=VMAssignmentResponse, status_code=status.HTTP_201_CREATED)
 def assign_vm(
+    payload: VMAssignmentRequest | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     pve: ProxmoxService = Depends(get_proxmox_service),
@@ -37,15 +45,29 @@ def assign_vm(
         count = len(db.scalars(select(VMAssignment).where(VMAssignment.user_id == user.id)).all())
         if count >= settings.max_vms_per_user:
             raise HTTPException(409, "VM limit reached")
+        requested_template = payload.template_vmid if payload else None
+        template = (
+            settings.template_by_vmid(requested_template)
+            if requested_template is not None
+            else settings.templates_list()[0]
+        )
+        if template is None:
+            raise HTTPException(400, f"Unknown template VMID: {requested_template}")
         vmid = pve.next_free_vmid(db)
-        name = f"{settings.clone_name_prefix}-{user.username}-{vmid}"
+        name = _clone_name(settings.clone_name_prefix, user.username, template.vmid, vmid)
         assignment = VMAssignment(
-            user_id=user.id, vmid=vmid, node=settings.pve_node, name=name, status="creating"
+            user_id=user.id,
+            vmid=vmid,
+            node=settings.pve_node,
+            name=name,
+            template_vmid=template.vmid,
+            template_label=template.label,
+            status="creating",
         )
         db.add(assignment)
         db.flush()
         try:
-            pve.clone_template(vmid, name)
+            pve.clone_template(vmid, name, template_vmid=template.vmid)
             pve.start(vmid)
             assignment.status = "running"
             db.commit()

@@ -10,8 +10,13 @@
   <main class="container">
     <header><h1>Мои виртуальные машины</h1><button id="logout" class="secondary">Выйти</button></header>
     <p id="message"></p>
-    <button id="get-vm">Получить ВМ</button>
-    <table><thead><tr><th>VMID</th><th>Имя</th><th>Статус</th><th>Действия</th></tr></thead>
+    <div class="vm-controls">
+      <label id="template-picker">Шаблон
+        <select id="template-select"></select>
+      </label>
+      <button id="get-vm">Получить ВМ</button>
+    </div>
+    <table><thead><tr><th>VMID</th><th>Имя</th><th>Шаблон</th><th>Статус</th><th>Действия</th></tr></thead>
       <tbody id="vms"></tbody>
     </table>
   </main>

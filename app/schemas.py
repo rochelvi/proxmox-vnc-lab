@@ -28,11 +28,22 @@ class VMAssignmentResponse(BaseModel):
     vmid: int
     node: str
     name: str
+    template_vmid: int | None
+    template_label: str | None
     status: str
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class VMAssignmentRequest(BaseModel):
+    template_vmid: int | None = None
+
+
+class TemplateResponse(BaseModel):
+    vmid: int
+    label: str
 
 
 class VNCResponse(BaseModel):

@@ -10,6 +10,9 @@ input { box-sizing: border-box; display: block; width: 100%; margin-top: .35rem;
 button, .button { display: inline-block; border: 0; border-radius: 6px; background: #2563eb; color: white; padding: .55rem .8rem; margin: .15rem; cursor: pointer; text-decoration: none; font: inherit; }
 button.secondary { background: #64748b; }
 button.danger { background: #dc2626; }
+.vm-controls { display: flex; align-items: end; gap: .5rem; }
+.vm-controls label { margin: 0; }
+select { display: block; margin-top: .35rem; padding: .55rem; border: 1px solid #cbd5e1; border-radius: 6px; }
 table { width: 100%; margin-top: 1.5rem; border-collapse: collapse; background: white; }
 th, td { text-align: left; padding: .75rem; border-bottom: 1px solid #e2e8f0; }
 .error { color: #b91c1c; }
