@@ -1,0 +1,1 @@
+"""Proxmox VNC lab application."""

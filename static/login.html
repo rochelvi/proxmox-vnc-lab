@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proxmox VNC Lab — Вход</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="card narrow">
+    <h1>Лаборатория ВМ</h1>
+    <form id="login-form">
+      <label>Имя пользователя<input name="username" required autocomplete="username"></label>
+      <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
+      <button type="submit">Войти</button>
+      <p id="error" class="error"></p>
+    </form>
+  </main>
+  <script>
+    document.querySelector("#login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const body = Object.fromEntries(new FormData(event.target));
+      const response = await fetch("/api/auth/login", {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        document.querySelector("#error").textContent = "Неверное имя пользователя или пароль";
+        return;
+      }
+      sessionStorage.setItem("token", (await response.json()).access_token);
+      location.href = "/";
+    });
+  </script>
+</body>
+</html>
