@@ -20,6 +20,18 @@
       <tbody id="vms"></tbody>
     </table>
   </main>
+
+  <div id="vm-loading-overlay" class="loading-overlay" hidden>
+    <div class="card narrow loading-card">
+      <div class="spinner"></div>
+      <h2>Создание виртуальной машины</h2>
+      <p class="loading-subtitle">Идет развертывание и запуск виртуальной машины.<br>Пожалуйста, подождите, это может занять несколько минут.</p>
+      <div class="progress-bar">
+        <div class="progress-bar-value"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

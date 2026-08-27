@@ -4,6 +4,8 @@ const headers = {"Authorization": `Bearer ${token}`, "Content-Type": "applicatio
 const message = document.querySelector("#message");
 const templatePicker = document.querySelector("#template-picker");
 const templateSelect = document.querySelector("#template-select");
+const getVmButton = document.querySelector("#get-vm");
+const loadingOverlay = document.querySelector("#vm-loading-overlay");
 
 async function request(path, options = {}) {
   const response = await fetch(path, {...options, headers: {...headers, ...(options.headers || {})}});
@@ -33,27 +35,52 @@ async function loadTemplates() {
   templatePicker.hidden = templates.length < 2;
 }
 
-document.querySelector("#get-vm").addEventListener("click", async () => {
+getVmButton.addEventListener("click", async () => {
+  message.textContent = "";
+  message.className = "";
+  getVmButton.disabled = true;
+  templateSelect.disabled = true;
+  if (loadingOverlay) loadingOverlay.hidden = false;
+
   try {
     await request("/api/vms", {
       method: "POST",
       body: JSON.stringify({template_vmid: Number(templateSelect.value)})
     });
-    message.textContent = "ВМ создана";
+    message.textContent = "ВМ успешно создана и запущена";
+    message.className = "success";
     await loadVMs();
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "error";
+  } finally {
+    if (loadingOverlay) loadingOverlay.hidden = true;
+    getVmButton.disabled = false;
+    templateSelect.disabled = false;
   }
-  catch (error) { message.textContent = error.message; message.className = "error"; }
 });
+
 document.querySelector("#vms").addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button) return;
   const vmid = button.dataset.vmid;
+  const action = button.dataset.action;
+  button.disabled = true;
   try {
-    await request(`/api/vms/${vmid}/${button.dataset.action}`, {method: "POST"});
-    if (button.dataset.action === "delete") message.textContent = "ВМ удалена";
+    await request(`/api/vms/${vmid}/${action}`, {method: "POST"});
+    if (action === "delete") {
+      message.textContent = "ВМ удалена";
+      message.className = "success";
+    }
     await loadVMs();
-  } catch (error) { message.textContent = error.message; message.className = "error"; }
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "error";
+  } finally {
+    button.disabled = false;
+  }
 });
+
 document.querySelector("#logout").addEventListener("click", () => { sessionStorage.removeItem("token"); location.href = "/login.html"; });
 Promise.all([loadTemplates(), loadVMs()]).catch(error => {
   message.textContent = error.message;

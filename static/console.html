@@ -27,18 +27,39 @@
         );
         const auth = {"Authorization": `Bearer ${token}`};
         const response = await fetch(`/api/vms/${vmid}/vnc`, {headers: auth});
-        if (!response.ok) throw new Error(`VNC API returned ${response.status}`);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.detail || `VNC API returned ${response.status}`);
+        }
         const info = await response.json();
         const scheme = location.protocol === "https:" ? "wss" : "ws";
-        const rfb = new RFB(document.querySelector("#screen"),
-          `${scheme}://${location.host}${info.ws_path}?port=${info.port}&vncticket=${encodeURIComponent(info.ticket)}&token=${encodeURIComponent(token)}`,
-          {credentials: {password: info.password}});
+        const wsUrl = `${scheme}://${location.host}${info.ws_path}?port=${info.port}&vncticket=${encodeURIComponent(info.ticket)}&token=${encodeURIComponent(token)}`;
+        const rfb = new RFB(document.querySelector("#screen"), wsUrl, {
+          credentials: {password: info.password}
+        });
         rfb.scaleViewport = true;
-        rfb.addEventListener("connect", () => { status.textContent = "Подключено"; });
-        rfb.addEventListener("disconnect", () => { status.textContent = "Соединение закрыто"; });
+        rfb.resizeSession = true;
+        rfb.addEventListener("connect", () => {
+          status.textContent = "Подключено";
+          status.className = "success";
+        });
+        rfb.addEventListener("disconnect", (e) => {
+          console.log("VNC disconnected", e.detail);
+          status.textContent = e.detail && e.detail.clean ? "Соединение закрыто" : "Соединение закрыто. Проверьте, что ВМ запущена.";
+          status.className = "error";
+        });
+        rfb.addEventListener("securityfailure", (e) => {
+          console.error("VNC security failure", e.detail);
+          status.textContent = "Ошибка авторизации VNC.";
+          status.className = "error";
+        });
+        rfb.addEventListener("credentialsrequired", () => {
+          rfb.sendCredentials({password: info.password});
+        });
       } catch (error) {
         console.error("VNC console failed", error);
-        status.textContent = "Не удалось загрузить консоль. Проверьте доступ к Proxmox.";
+        status.textContent = error.message || "Не удалось загрузить консоль. Проверьте доступ к Proxmox.";
+        status.className = "error";
       }
     })();
   </script>

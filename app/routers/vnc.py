@@ -61,19 +61,24 @@ async def vnc_websocket(websocket: WebSocket, vmid: int) -> None:
         if assignment is None or (assignment.user_id != user_id and not _is_admin(db, user_id)):
             await websocket.close(code=4403)
             return
-        await websocket.accept()
+        requested_protocols = websocket.headers.get("sec-websocket-protocol", "").split(",")
+        subprotocol = "binary" if any(p.strip() == "binary" for p in requested_protocols) else None
+        await websocket.accept(subprotocol=subprotocol)
         headers = await _upstream_headers(settings)
         query = urlencode({"port": port, "vncticket": vnc_ticket})
         upstream_url = (
             f"wss://{settings.pve_host}:{settings.pve_port}/api2/json/nodes/"
             f"{assignment.node}/qemu/{vmid}/vncwebsocket?{query}"
         )
+        logger.info("Connecting to Proxmox VNC upstream for vmid=%s node=%s", vmid, assignment.node)
         async with websockets.connect(
             upstream_url,
             additional_headers=headers,
             subprotocols=["binary"],
             ssl=_websocket_ssl_context(settings),
         ) as upstream:
+            logger.info("Connected to Proxmox VNC upstream for vmid=%s", vmid)
+
             async def client_to_pve() -> None:
                 while True:
                     message = await websocket.receive()
@@ -97,10 +102,11 @@ async def vnc_websocket(websocket: WebSocket, vmid: int) -> None:
             for task in pending:
                 task.cancel()
             for task in done:
-                if task.exception() and not isinstance(task.exception(), WebSocketDisconnect):
-                    logger.debug("VNC proxy closed: %s", task.exception())
-    except Exception:
-        logger.info("VNC proxy ended vmid=%s", vmid, exc_info=True)
+                exc = task.exception()
+                if exc and not isinstance(exc, (WebSocketDisconnect, asyncio.CancelledError)):
+                    logger.warning("VNC proxy stream task ended for vmid=%s: %s", vmid, exc)
+    except Exception as e:
+        logger.warning("VNC proxy ended vmid=%s: %s", vmid, e)
         try:
             await websocket.close()
         except Exception:

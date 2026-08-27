@@ -156,9 +156,10 @@ def vnc(
     _assignment_or_404(vmid, user, db)
     result = pve.vncproxy(vmid)
     ticket = str(result["ticket"])
+    password = str(result.get("password") or ticket)
     return VNCResponse(
         ticket=ticket,
         port=int(result["port"]),
         ws_path=f"/api/vms/{vmid}/ws",
-        password=ticket,
+        password=password,
     )

@@ -131,7 +131,10 @@ class ProxmoxService:
 
     def vncproxy(self, vmid: int) -> dict:
         return self._call(
-            lambda: self.api.nodes(self.settings.pve_node).qemu(vmid).vncproxy.post(websocket=1),
+            lambda: self.api.nodes(self.settings.pve_node).qemu(vmid).vncproxy.post(
+                websocket=1,
+                generate_password=1,
+            ),
             vmid=vmid,
         )
 
