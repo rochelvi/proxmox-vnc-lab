@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import ssl
 from urllib.parse import urlencode
 
 import httpx
@@ -14,6 +15,14 @@ from app.security import decode_access_token
 
 router = APIRouter(prefix="/api/vms", tags=["vnc"])
 logger = logging.getLogger(__name__)
+
+
+def _websocket_ssl_context(settings) -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    if not settings.pve_verify_ssl:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    return context
 
 
 async def _upstream_headers(settings) -> dict[str, str]:
@@ -63,7 +72,7 @@ async def vnc_websocket(websocket: WebSocket, vmid: int) -> None:
             upstream_url,
             additional_headers=headers,
             subprotocols=["binary"],
-            ssl=None if settings.pve_verify_ssl else False,
+            ssl=_websocket_ssl_context(settings),
         ) as upstream:
             async def client_to_pve() -> None:
                 while True:

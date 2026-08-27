@@ -54,7 +54,7 @@ class ProxmoxService:
             if secret:
                 message = message.replace(secret, "[redacted]")
         logger.error("Proxmox request failed vmid=%s node=%s error=%s", vmid, self.settings.pve_node, message)
-        return HTTPException(502, f"Proxmox API error: {message[:500]}")
+        return HTTPException(502, f"Не удалось связаться с Proxmox: {message[:500]}")
 
     def _call(self, operation: Callable[[], Any], *, vmid: int | None = None) -> Any:
         try:
@@ -85,7 +85,8 @@ class ProxmoxService:
                 return vmid
         raise HTTPException(409, "No free VM IDs in configured range")
 
-    def clone_template(self, new_vmid: int, name: str) -> None:
+    def clone_template(self, new_vmid: int, name: str, template_vmid: int | None = None) -> None:
+        source_vmid = template_vmid if template_vmid is not None else self.settings.templates_list()[0].vmid
         params: dict[str, Any] = {"newid": new_vmid, "name": name, "full": int(self.settings.clone_full)}
         if self.settings.clone_full and self.settings.clone_storage:
             params["storage"] = self.settings.clone_storage
@@ -93,7 +94,7 @@ class ProxmoxService:
             params["pool"] = self.settings.clone_pool
         upid = self._call(
             lambda: self.api.nodes(self.settings.pve_node)
-            .qemu(self.settings.template_vmid)
+            .qemu(source_vmid)
             .clone.post(**params),
             vmid=new_vmid,
         )
