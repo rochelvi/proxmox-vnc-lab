@@ -64,6 +64,20 @@ linked clone. При `CLONE_FULL=true` сервис передаст `storage` (
 `CLONE_STORAGE`) и `pool` в API PVE. `CLONE_VMID_MIN/MAX` задают диапазон
 выдаваемых ID.
 
+Несколько шаблонов задаются через allowlist `TEMPLATES`:
+`TEMPLATES=9000:Ubuntu 22.04,9001:Debian 12`. Пробелы вокруг записей
+игнорируются, но каждая запись обязана иметь положительный числовой VMID,
+двоеточие и непустой label; ошибки конфигурации приводят к явной ошибке при
+старте. Если `TEMPLATES` не задан, используется старый `TEMPLATE_VMID` с
+label `template-<vmid>`. `GET /api/templates` требует авторизацию и не
+обращается к PVE. При создании ВМ клиент может отправить
+`{"template_vmid": 9001}`; VMID проверяется только по этой allowlist.
+У существующих записей `template_vmid` и label могут быть `NULL`.
+
+`init_db()` идемпотентно добавляет эти две колонки в старую SQLite-таблицу
+через `ALTER TABLE`, поэтому отдельный migration runner для этого изменения
+не нужен.
+
 По умолчанию используется API token:
 `PVE_TOKEN_ID=interns@pve!vmlab` и `PVE_TOKEN_SECRET=...`.
 Если одновременно заданы `PVE_USER` и `PVE_PASSWORD`, WebSocket VNC предпочитает
