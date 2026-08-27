@@ -2,9 +2,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -36,7 +36,7 @@ def decode_access_token(token: str) -> dict:
     settings = get_settings()
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError as exc:
+    except jwt.PyJWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
 

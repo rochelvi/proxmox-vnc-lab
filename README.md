@@ -47,7 +47,7 @@ pveum acl modify /storage/local --users interns@pve --roles InternVncLab
 uv python install 3.11
 uv venv --python 3.11
 source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install -r requirements-dev.txt
 cp .env.example .env
 # заполните PVE_* и JWT_SECRET
 python -m app.cli create-user intern1 'strong-password'
@@ -105,6 +105,9 @@ ruff check .
 python -m compileall app
 pytest
 ```
+
+Для production достаточно установить только `requirements.txt`; `pytest` и
+`ruff` находятся в `requirements-dev.txt`.
 
 Тесты не подключаются к реальному PVE: сервис подменён stub-реализацией. Полная
 проверка clone/start/VNC требует работающего Proxmox VE, корректных privileges,

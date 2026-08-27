@@ -1,4 +1,6 @@
+import pytest
 from sqlalchemy import select
+from starlette.websockets import WebSocketDisconnect
 
 from app.models import VMAssignment
 from tests.conftest import login
@@ -61,3 +63,28 @@ def test_vnc_endpoint_shape(client):
         "ws_path": f"/api/vms/{vmid}/ws",
         "password": "ticket-for-test",
     }
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["port=5901&vncticket=ticket", "port=5901&vncticket=ticket&token=invalid"],
+)
+def test_vnc_websocket_closes_without_valid_token(client, query):
+    api, _, _ = client
+    with pytest.raises(WebSocketDisconnect) as error:
+        with api.websocket_connect(f"/api/vms/101/ws?{query}") as websocket:
+            websocket.receive()
+    assert error.value.code == 4401
+
+
+def test_vnc_websocket_closes_for_non_owner(client):
+    api, _, _ = client
+    owner_token = login(api)
+    vmid = api.post("/api/vms", headers={"Authorization": f"Bearer {owner_token}"}).json()["vmid"]
+    other_token = login(api, "other")
+    with pytest.raises(WebSocketDisconnect) as error:
+        with api.websocket_connect(
+            f"/api/vms/{vmid}/ws?port=5901&vncticket=ticket&token={other_token}"
+        ) as websocket:
+            websocket.receive()
+    assert error.value.code == 4403

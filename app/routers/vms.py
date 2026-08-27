@@ -77,6 +77,7 @@ def list_vms(
             assignment.status = str(live.get("status", assignment.status))
         except HTTPException:
             pass
+    db.commit()
     return assignments
 
 
