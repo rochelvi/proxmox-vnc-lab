@@ -28,6 +28,8 @@ class VMAssignment(Base):
     vmid: Mapped[int] = mapped_column(Integer, unique=True, index=True, nullable=False)
     node: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    template_vmid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    template_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="creating", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

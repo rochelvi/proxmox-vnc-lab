@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -30,6 +30,12 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    columns = {column["name"] for column in inspect(engine).get_columns("vm_assignments")}
+    with engine.begin() as connection:
+        if "template_vmid" not in columns:
+            connection.execute(text("ALTER TABLE vm_assignments ADD COLUMN template_vmid INTEGER"))
+        if "template_label" not in columns:
+            connection.execute(text("ALTER TABLE vm_assignments ADD COLUMN template_label VARCHAR(200)"))
 
 
 def get_db() -> Generator[Session, None, None]:

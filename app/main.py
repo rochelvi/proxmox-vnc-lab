@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db import init_db
-from app.routers import auth, vms, vnc
+from app.routers import auth, templates, vms, vnc
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
     )
     application = FastAPI(title="Proxmox VNC Lab", lifespan=lifespan)
     application.include_router(auth.router)
+    application.include_router(templates.router)
     application.include_router(vms.router)
     application.include_router(vnc.router)
 
