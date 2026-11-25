@@ -18,6 +18,21 @@ def test_login_jwt_and_me(client):
     assert response.json()["can_change_password"] is True
 
 
+def test_serves_static_index(client):
+    api, _, _ = client
+    response = api.get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert '<script src="/app.js"' in response.text
+
+
+def test_login_with_form_data(client):
+    api, _, _ = client
+    response = api.post("/api/auth/login", data={"username": "intern", "password": "password"})
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+
 def test_change_password_updates_credentials(client):
     api, _, _ = client
     token = login(api)
