@@ -2,7 +2,7 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 proxmoxer==2.2.0
 requests==2.32.3
-SQLAlchemy==2.0.36
+SQLAlchemy==2.0.58
 bcrypt==4.2.1
 PyJWT==2.10.1
 pydantic-settings==2.7.1
